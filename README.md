@@ -25,10 +25,14 @@ app_mention
 
 ### PYTHON environment to run the bot on a linux host
 
+```sh
+These steps are only if you want to run it manually. They are not needed for running a docker container
+```
+
 1. Create a directory
 2. execute: `python -m venv .venv`
 3. execute: `source ./venv/bin/activate`
-4. Create a .env files for all your parameters:
+4. Create a .env file for all your parameters:
 ```sh
 SLACK_BOT_TOKEN=
 SLACK_APP_TOKEN=
@@ -37,7 +41,7 @@ DB_DATABASE=
 DB_USERNAME=
 DB_PASSWORD=
 ```
-5. Install all the pre-reqs for the bot:
+5. Install all the pre-reqs tools for the bot:
 ```sh
 pip3 install python-dotenv slack-sdk slack-bolt pymssql prettytable
 ```
