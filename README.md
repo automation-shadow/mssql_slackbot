@@ -41,3 +41,11 @@ DB_PASSWORD=
 ```sh
 pip3 install python-dotenv slack-sdk slack-bolt pymssql prettytable
 ```
+
+### Putting the bot into a container
+
+1. Change to the directory with the repo
+2. Build the image first: `docker build -t python-bot .`
+3. Run the container once: `docker run -d python-bot`
+4. This should have a container running the bot. Check the logs to verify.
+5. In the build process, another container was created. You can remove that.
