@@ -16,6 +16,7 @@ DB_PASSWORD = os.environ['DB_PASSWORD']
 
 app = App(token=SLACK_BOT_TOKEN)
 
+# Define the sql driver and connection to run on the database
 def query_database(say, search_str1, search_str2):
     try:
         # Create a connection to the mssql server database
@@ -81,7 +82,7 @@ def help_command(say):
     This will search for skills with 'java' and 'python'.
     If you do not have two search terms, just use the same one twice.
 
-    For help, contact Winchell :winchell_help: .
+    For help, contact someone else.
     """
     say(help_text)
 
