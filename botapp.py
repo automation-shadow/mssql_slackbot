@@ -6,7 +6,7 @@ import pymssql
 from prettytable import PrettyTable
 
 load_dotenv()
-
+# Load in all the environment variables
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
 SLACK_APP_TOKEN = os.environ['SLACK_APP_TOKEN']
 DB_SERVER = os.environ['DB_SERVER']
@@ -18,25 +18,27 @@ app = App(token=SLACK_BOT_TOKEN)
 
 def query_database(say, search_str1, search_str2):
     try:
-        # Establish a connection to the database
+        # Create a connection to the mssql server database
         conn = pymssql.connect(server=DB_SERVER, database=DB_DATABASE, user=DB_USERNAME, password=DB_PASSWORD)
         cursor = conn.cursor()
 
-        # Example query with two parameters from Slack
+        # Execute a stored procedure with two parameters from the Slack user 
         cursor.execute("EXEC findskills @SearchStr1 = %s, @SearchStr2 = %s", (search_str1, search_str2))
         rows = cursor.fetchall()
 
-        # Process the result and format it as a table
+        # Process the result and format it so it is pretty to read
         table = PrettyTable()
-        table.field_names = ["Search String 1", "Search String 2", "People with those skills"]  # Replace with your actual column names
+        table.field_names = ["Search String 1", "Search String 2", "People with those skills"]  # Update with your actual column names
 
         # Set the max width for each column
-        table._max_width = {"Search String 1": 50, "Search String 2": 50, "People with those skills": 100}  # Adjust the width as needed
+        table._max_width = {"Search String 1": 50, "Search String 2": 50, "People with those skills": 100}  # Update the width as needed
 
+        # Response if the return set is empty
         if not rows:
             say(f"No results found for: {search_str1}, {search_str2}")
             return
 
+        #⛧ Break up the list because it is too long
         rows_per_response = 50
         total_rows = len(rows)
         start_row = 0
@@ -44,13 +46,13 @@ def query_database(say, search_str1, search_str2):
         while start_row < total_rows:
             end_row = min(start_row + rows_per_response, total_rows)
             for row in rows[start_row:end_row]:
-                # Add each row as a new row in the table
+                # Add each row as a new row to table
                 table.add_row([search_str1, search_str2] + list(row))  # Assuming the rows are tuples
 
-            # Send the formatted table as a single response
+            # Send the formatted table as a single response back to Slack
             say(f"Search Results (Rows {start_row + 1}-{end_row}):\n```\n{table}\n```")
 
-            # Clear the table for the next set of rows
+            # Clear the table for the next set of rows for the next response
             table.clear_rows()
 
             start_row = end_row
@@ -94,7 +96,7 @@ def mention_handler(ack, body, say):
     ack()
 
     text = body['event']['text']
-
+        # Look at the text and execute a command
     if "!help" in text:
         help_command(say)
     elif "Hello" in text:
