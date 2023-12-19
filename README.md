@@ -53,6 +53,7 @@ DB_PASSWORD=
 ```sh
 pip3 install python-dotenv slack-sdk slack-bolt pymssql prettytable
 ```
+6. Run the bot: `python ./botapp.py`
 
 <h2 align="center">Putting the bot into a container</h2>
 
