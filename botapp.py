@@ -65,6 +65,42 @@ def query_database(say, search_str1, search_str2):
         # Close the database connection
         conn.close()
 
+def query_data_age(say):
+    try:
+        # Create a connection to the MSSQL server database
+        conn = pymssql.connect(server=DB_SERVER, database=DB_DATABASE, user=DB_USERNAME, password=DB_PASSWORD)
+        cursor = conn.cursor()
+
+        # Execute the stored procedure with no parameters
+        cursor.execute("EXEC data_age")
+        rows = cursor.fetchall()
+
+        # Process the result and format it so it is pretty to read
+        table = PrettyTable()
+        table.field_names = ["Updated Data", "Value"]
+
+        # Set the max width for each column
+        table._max_width = {"Updated Data": 50, "Value": 50}
+
+        # Response if the return set is empty
+        if not rows:
+            say("No results found for the data_age stored procedure")
+            return
+
+        # Add each row as a new row to the table
+        for row in rows:
+            table.add_row(list(row))
+
+        # Send the formatted table as a single response back to Slack
+        say(f"Data Age Results:\n```\n{table}\n```")
+
+    except Exception as e:
+        print(f"Error connecting to the database: {e}")
+        say(f"Error connecting to the database: {e}")
+    finally:
+        # Close the database connection
+        conn.close()
+
 def help_command(say):
     help_text = """
     :information_source: *Bot Help* :information_source:
@@ -111,10 +147,12 @@ def mention_handler(ack, body, say):
         say(f"Searching for: {search_str1}, {search_str2}")
         # Call the function to query the database with the search strings
         query_database(say, search_str1, search_str2)
+    elif "!data" in text:
+        say("Executing data_age stored procedure...")
+        query_data_age(say)	
     else:
         say("Invalid command. Please use '!help' or provide search parameters.")
 
 if __name__ == "__main__":
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     handler.start()
-
