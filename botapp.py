@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 import pymssql
 from prettytable import PrettyTable
-
+# Import all the needed modules
 load_dotenv()
 # Load in all the environment variables
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
