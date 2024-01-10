@@ -1,3 +1,5 @@
+from slack_sdk.web import WebClient
+from slack_sdk.errors import SlackApiError
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import os
@@ -118,7 +120,7 @@ def help_command(say):
     This will search for skills with 'java' and 'python'.
     If you do not have two search terms, just use the same one twice.
 
-    For help, contact someone else.
+    For help or to give feedback, Please contact Winchell :winchell_help:.
     """
     say(help_text)
 
@@ -128,16 +130,91 @@ def hello_command(say):
     """
     say(hello_text)
 
+def emails_command(say, channel_id):
+    try:
+        client = WebClient(token=SLACK_BOT_TOKEN)
+        result = client.conversations_members(channel=channel_id)
+
+        # Process the result and format it as a table
+        table = PrettyTable()
+        table.field_names = ["User ID", "Team ID", "Display Name", "Real Name", "Phone", "Email"]
+
+        # Set the max width for each column
+        table._max_width = {"User ID": 20, "Team ID": 20, "Display Name": 20, "Real Name": 20, "Phone": 20, "Email": 40}
+
+        for user_id in result['members']:
+            info = client.users_info(user=user_id).data['user']
+
+            member_id = info.get('id', 'null')
+            team_id = info.get('team_id', 'null')
+            display_name = info.get('name', 'null')
+            real_name = info.get('real_name', 'null')
+            phone = info.get('profile', {}).get('phone', 'null')
+            email = info.get('profile', {}).get('email', 'null')
+
+            table.add_row([member_id, team_id, display_name, real_name, phone, email])
+
+        # Send the formatted table as a single response back to Slack
+        say(f"Emails in Channel (Channel ID: {channel_id}):\n```\n{table}\n```")
+
+    except Exception as e:
+        print(f"Error retrieving emails: {e}")
+        say(f"Error retrieving emails: {e}")
+
+def messages_command(say, client, channel_id, member_id):
+    try:
+        # Get the channel history
+        history = client.conversations_history(channel=channel_id)
+        
+        # Filter messages by the specified member_id
+        messages = [msg for msg in history['messages'] if msg.get('user') == member_id]
+        
+        if not messages:
+            say(f"No messages found for member_id: {member_id}")
+            return
+
+        # Save messages to a text file with the name formatted as messages_{member_id}.txt
+        filename = f"messages_{member_id}.txt"
+        with open(filename, "w", encoding="utf-8") as file:
+            for msg in messages:
+                file.write(f"{msg['ts']}: {msg.get('text', 'No text')}\n")
+
+        say(f"Messages saved to `{filename}` for member_id: {member_id}")
+
+    except SlackApiError as e:
+        print(f"Error fetching channel history: {e.response['error']}")
+        say(f"Error fetching channel history: {e.response['error']}")
+    except Exception as e:
+        print(f"Error processing messages: {e}")
+        say(f"Error processing messages: {e}")
+
 @app.event("app_mention")
 def mention_handler(ack, body, say):
     ack()
 
     text = body['event']['text']
-        # Look at the text and execute a command
+    # Look at the text and execute a command
     if "!help" in text:
         help_command(say)
     elif "Hello" in text:
         hello_command(say)
+    elif "!emails" in text:
+        # Extract the channel_id from the message
+        try:
+            channel_id = text.split("!emails")[1].strip()
+            emails_command(say, channel_id=channel_id)
+        except ValueError:
+            say("Invalid command format. Please provide the channel_id.")
+    elif "!data" in text:
+        say("Executing data_age stored procedure...")
+        query_data_age(say)
+    elif "!messages" in text:
+        # Extract the channel_id and member_id from the message
+        try:
+            channel_id, member_id = text.split("!messages")[1].strip().split()
+            messages_command(say, client, channel_id=channel_id, member_id=member_id)
+        except ValueError:
+            say("Invalid command format. Please provide both channel_id and member_id.")
     elif "@SearchStr1" in text:
         # Extract the search strings from the message
         search_strs = text.split("@SearchStr1")[1].strip().split("@SearchStr2")
@@ -147,12 +224,10 @@ def mention_handler(ack, body, say):
         say(f"Searching for: {search_str1}, {search_str2}")
         # Call the function to query the database with the search strings
         query_database(say, search_str1, search_str2)
-    elif "!data" in text:
-        say("Executing data_age stored procedure...")
-        query_data_age(say)	
     else:
         say("Invalid command. Please use '!help' or provide search parameters.")
 
 if __name__ == "__main__":
+    client = WebClient(token=SLACK_BOT_TOKEN)
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     handler.start()
