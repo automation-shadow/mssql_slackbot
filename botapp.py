@@ -133,26 +133,27 @@ def hello_command(say):
 def emails_command(say, channel_id):
     try:
         client = WebClient(token=SLACK_BOT_TOKEN)
-        result = client.conversations_members(channel=channel_id)
+        
+        # Retrieve all users, including deactivated ones
+        result = client.users_list()
 
         # Process the result and format it as a table
         table = PrettyTable()
-        table.field_names = ["User ID", "Team ID", "Display Name", "Real Name", "Phone", "Email"]
+        table.field_names = ["User ID", "Team ID", "Display Name", "Real Name", "Phone", "Email", "Status"]
 
         # Set the max width for each column
-        table._max_width = {"User ID": 20, "Team ID": 20, "Display Name": 20, "Real Name": 20, "Phone": 20, "Email": 40}
+        table._max_width = {"User ID": 20, "Team ID": 20, "Display Name": 20, "Real Name": 20, "Phone": 20, "Email": 40, "Status": 10}
 
-        for user_id in result['members']:
-            info = client.users_info(user=user_id).data['user']
+        for user_info in result['members']:
+            member_id = user_info.get('id', 'null')
+            team_id = user_info.get('team_id', 'null')
+            display_name = user_info.get('name', 'null')
+            real_name = user_info.get('real_name', 'null')
+            phone = user_info.get('profile', {}).get('phone', 'null')
+            email = user_info.get('profile', {}).get('email', 'null')
+            is_active = not user_info.get('deleted', True)
 
-            member_id = info.get('id', 'null')
-            team_id = info.get('team_id', 'null')
-            display_name = info.get('name', 'null')
-            real_name = info.get('real_name', 'null')
-            phone = info.get('profile', {}).get('phone', 'null')
-            email = info.get('profile', {}).get('email', 'null')
-
-            table.add_row([member_id, team_id, display_name, real_name, phone, email])
+            table.add_row([member_id, team_id, display_name, real_name, phone, email, "Active" if is_active else "Deactivated"])
 
         # Send the formatted table as a single response back to Slack
         say(f"Emails in Channel (Channel ID: {channel_id}):\n```\n{table}\n```")
