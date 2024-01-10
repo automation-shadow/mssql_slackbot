@@ -22,6 +22,16 @@ app_mentions.read: This allows the bot to read the messages that mention our bot
 channels:join: This allows the bot to join channels.
 chat:write: This allows the bot to send messages in a public channel.
 ```
+4.5 Additional permissions for the new commands added:
+```sh
+channels:history
+channels:read
+groups:read
+groups:history
+im:read
+mpim:read
+users:read
+```
 5. Enable socketmode and add the follow scope:
 ```sh
 connections:write
