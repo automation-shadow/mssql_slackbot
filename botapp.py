@@ -117,7 +117,14 @@ def help_command(say):
     @Skillbot @SearchStr1 java @SearchStr2 python
     ```
 
-    This will search for skills with 'java' and 'python'.
+    There is an option parameter called: @cond
+    This defaults to OR, but if provided can do an AND search.
+
+    Example:
+    ```
+    @Skillbot @SearchStr1 SQL @SearchStr2 python @cond AND
+    ```
+
     If you do not have two search terms, just use the same one twice.
 
     For help or to give feedback, Please contact Winchell :winchell_help:.
@@ -220,15 +227,22 @@ def mention_handler(ack, body, say):
             say("Invalid command format. Please provide both channel_id and member_id.")
     elif "@SearchStr1" in text:
         # Extract the search strings and cond from the message
-        search_parts = text.split("@SearchStr1")[1].strip().split("@SearchStr2")
-        search_str1, search_str2 = search_parts[0].strip(), search_parts[1].strip()
-        cond = search_parts[2].strip() if len(search_parts) > 2 else 'OR'
+        search_parts = text.split("@SearchStr1")[1].strip().split('@cond')
+        search_str1 = search_parts[0].strip()
+        cond = search_parts[1].strip() if len(search_parts) > 1 else 'OR'
+
+        # Further split the search_str1 if there is an @SearchStr2
+        search_str2_parts = search_str1.split("@SearchStr2")
+        search_str1 = search_str2_parts[0].strip()
+        search_str2 = search_str2_parts[1].strip() if len(search_str2_parts) > 1 else ''
 
         say(f"Searching for: {search_str1}, {search_str2} with condition: {cond}")
         # Call the function to query the database with the search strings and cond
         query_database(say, search_str1, search_str2, cond)
     else:
         say("Invalid command. Please use '!help' or provide search parameters.")
+
+
 
 if __name__ == "__main__":
     client = WebClient(token=SLACK_BOT_TOKEN)
