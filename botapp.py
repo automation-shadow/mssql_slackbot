@@ -19,14 +19,14 @@ DB_PASSWORD = os.environ['DB_PASSWORD']
 app = App(token=SLACK_BOT_TOKEN)
 
 # Define the sql driver and connection to run on the database
-def query_database(say, search_str1, search_str2):
+def query_database(say, search_str1, search_str2, cond='OR'):
     try:
         # Create a connection to the mssql server database
         conn = pymssql.connect(server=DB_SERVER, database=DB_DATABASE, user=DB_USERNAME, password=DB_PASSWORD)
         cursor = conn.cursor()
 
-        # Execute a stored procedure with two parameters from the Slack user 
-        cursor.execute("EXEC findskills @SearchStr1 = %s, @SearchStr2 = %s", (search_str1, search_str2))
+        # Execute a stored procedure with two parameters from the Slack user and the cond parameter
+        cursor.execute("EXEC findskills @SearchStr1 = %s, @SearchStr2 = %s, @Cond = %s", (search_str1, search_str2, cond))
         rows = cursor.fetchall()
 
         # Process the result and format it so it is pretty to read
@@ -66,7 +66,7 @@ def query_database(say, search_str1, search_str2):
     finally:
         # Close the database connection
         conn.close()
-
+        
 def query_data_age(say):
     try:
         # Create a connection to the MSSQL server database
@@ -210,21 +210,23 @@ def mention_handler(ack, body, say):
         say("Executing data_age stored procedure...")
         query_data_age(say)
     elif "!messages" in text:
-        # Extract the channel_id and member_id from the message
+        # Extract the channel_id, member_id, and timestamp from the message
         try:
-            channel_id, member_id = text.split("!messages")[1].strip().split()
-            messages_command(say, client, channel_id=channel_id, member_id=member_id)
+            timestamp = "1534312800.000000"
+            parts = text.split("!messages")[1].strip().split()
+            channel_id, member_id = parts[0], parts[1]
+            messages_command(say, client, channel_id=channel_id, member_id=member_id, timestamp=timestamp)
         except ValueError:
             say("Invalid command format. Please provide both channel_id and member_id.")
     elif "@SearchStr1" in text:
-        # Extract the search strings from the message
-        search_strs = text.split("@SearchStr1")[1].strip().split("@SearchStr2")
-        search_str1 = search_strs[0].strip()
-        search_str2 = search_strs[1].strip()
+        # Extract the search strings and cond from the message
+        search_parts = text.split("@SearchStr1")[1].strip().split("@SearchStr2")
+        search_str1, search_str2 = search_parts[0].strip(), search_parts[1].strip()
+        cond = search_parts[2].strip() if len(search_parts) > 2 else 'OR'
 
-        say(f"Searching for: {search_str1}, {search_str2}")
-        # Call the function to query the database with the search strings
-        query_database(say, search_str1, search_str2)
+        say(f"Searching for: {search_str1}, {search_str2} with condition: {cond}")
+        # Call the function to query the database with the search strings and cond
+        query_database(say, search_str1, search_str2, cond)
     else:
         say("Invalid command. Please use '!help' or provide search parameters.")
 
