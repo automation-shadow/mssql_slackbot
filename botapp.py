@@ -19,7 +19,7 @@ DB_PASSWORD = os.environ['DB_PASSWORD']
 app = App(token=SLACK_BOT_TOKEN)
 
 # Define the sql driver and connection to run on the database
-def query_database(say, search_str1, search_str2, cond='OR'):
+def query_database(say, search_str1, search_str2, cond='OR', user_id=None, channel_id=None):
     try:
         # Create a connection to the mssql server database
         conn = pymssql.connect(server=DB_SERVER, database=DB_DATABASE, user=DB_USERNAME, password=DB_PASSWORD)
@@ -38,7 +38,7 @@ def query_database(say, search_str1, search_str2, cond='OR'):
 
         # Response if the return set is empty
         if not rows:
-            say(f"No results found for: {search_str1}, {search_str2}")
+            say(f"No results found for: {search_str1}, {search_str2}", thread_ts=channel_id)
             return
 
         #⛧ Break up the list because it is too long
@@ -48,12 +48,16 @@ def query_database(say, search_str1, search_str2, cond='OR'):
 
         while start_row < total_rows:
             end_row = min(start_row + rows_per_response, total_rows)
+
+            # Add each row as a new row to table
             for row in rows[start_row:end_row]:
-                # Add each row as a new row to table
                 table.add_row([search_str1, search_str2] + list(row))  # Assuming the rows are tuples
 
             # Send the formatted table as a single response back to Slack
-            say(f"Search Results (Rows {start_row + 1}-{end_row}):\n```\n{table}\n```")
+            if total_rows > rows_per_response and start_row == 0:
+                say(f"Total Results Found: {total_rows}. Try to be more specific about what you are looking for. \n```\n{table}\n```", thread_ts=channel_id)
+            elif total_rows <= rows_per_response:
+                say(f"Search Results (Rows {start_row + 1}-{end_row}):\n```\n{table}\n```", thread_ts=channel_id)
 
             # Clear the table for the next set of rows for the next response
             table.clear_rows()
@@ -61,12 +65,12 @@ def query_database(say, search_str1, search_str2, cond='OR'):
             start_row = end_row
 
     except Exception as e:
-        print(f"Error connecting to the database: {e}")
-        say(f"Error connecting to the database: {e}")
+        print(f"Error connecting to the database: {e}", thread_ts=channel_id)
+        say(f"Error connecting to the database: {e}", thread_ts=channel_id)
     finally:
         # Close the database connection
         conn.close()
-        
+
 def query_data_age(say):
     try:
         # Create a connection to the MSSQL server database
@@ -171,23 +175,31 @@ def emails_command(say, channel_id):
 
 def messages_command(say, client, channel_id, member_id):
     try:
-        # Get the channel history
-        history = client.conversations_history(channel=channel_id)
-        
-        # Filter messages by the specified member_id
-        messages = [msg for msg in history['messages'] if msg.get('user') == member_id]
-        
-        if not messages:
-            say(f"No messages found for member_id: {member_id}")
-            return
+        # Set the 'latest' parameter to None initially
+        latest_param = None
 
-        # Save messages to a text file with the name formatted as messages_{member_id}.txt
-        filename = f"messages_{member_id}.txt"
-        with open(filename, "w", encoding="utf-8") as file:
-            for msg in messages:
-                file.write(f"{msg['ts']}: {msg.get('text', 'No text')}\n")
+        # Loop to get all messages
+        while True:
+            # Get the channel history with the 'latest' parameter
+            history = client.conversations_history(channel=channel_id, latest=latest_param)
 
-        say(f"Messages saved to `{filename}` for member_id: {member_id}")
+            # Filter messages by the specified member_id
+            messages = [msg for msg in history['messages'] if msg.get('user') == member_id]
+
+            if not messages:
+                # No more messages, break the loop
+                break
+
+            # Save messages to a text file with the name formatted as messages_{member_id}.txt
+            filename = f"messages_{member_id}.txt"
+            with open(filename, "a", encoding="utf-8") as file:
+                for msg in messages:
+                    file.write(f"{msg['ts']}: {msg.get('text', 'No text')}\n")
+
+            # Set the 'latest' parameter for the next iteration
+            latest_param = messages[-1]['ts']
+
+        say(f"All messages saved to `{filename}` for member_id: {member_id}")
 
     except SlackApiError as e:
         print(f"Error fetching channel history: {e.response['error']}")
@@ -195,7 +207,7 @@ def messages_command(say, client, channel_id, member_id):
     except Exception as e:
         print(f"Error processing messages: {e}")
         say(f"Error processing messages: {e}")
-
+		
 @app.event("app_mention")
 def mention_handler(ack, body, say):
     ack()
@@ -217,12 +229,10 @@ def mention_handler(ack, body, say):
         say("Executing data_age stored procedure...")
         query_data_age(say)
     elif "!messages" in text:
-        # Extract the channel_id, member_id, and timestamp from the message
+        # Extract the channel_id and member_id from the message
         try:
-            timestamp = "1534312800.000000"
-            parts = text.split("!messages")[1].strip().split()
-            channel_id, member_id = parts[0], parts[1]
-            messages_command(say, client, channel_id=channel_id, member_id=member_id, timestamp=timestamp)
+            channel_id, member_id = text.split("!messages")[1].strip().split()
+            messages_command(say, client, channel_id=channel_id, member_id=member_id)
         except ValueError:
             say("Invalid command format. Please provide both channel_id and member_id.")
     elif "@SearchStr1" in text:
@@ -241,8 +251,6 @@ def mention_handler(ack, body, say):
         query_database(say, search_str1, search_str2, cond)
     else:
         say("Invalid command. Please use '!help' or provide search parameters.")
-
-
 
 if __name__ == "__main__":
     client = WebClient(token=SLACK_BOT_TOKEN)
