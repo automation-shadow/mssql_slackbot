@@ -1,4 +1,4 @@
-FROM python:3.8.18-slim
+FROM python:3.9-slim
 # Or any preferred Python version.
 ADD botapp.py .
 ADD .env .
